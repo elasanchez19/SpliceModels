@@ -2,24 +2,18 @@
 
 import pandas as pd
 import numpy as np
-import tensorflow as tf
 import matplotlib.pyplot as plt
 import os
 import seaborn as sns
 from sklearn.metrics import auc
 from Bio import SeqIO
 from pathlib import Path
-from . import converter as cv 
-from itertools import product
-from sklearn.utils import shuffle
-from keras.utils import to_categorical
-from keras import backend as K
-from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score
+from sklearn.metrics import f1_score, confusion_matrix, roc_curve
 from keras.models import Sequential
-from keras.layers import Input, Conv2D, Conv1D, MaxPooling2D, MaxPooling1D, Flatten, Dense, Dropout, BatchNormalization, Activation
-from keras.regularizers import l1, l2, l1_l2
-from keras.optimizers import Adam
+from keras.layers import Conv1D, MaxPooling1D, Flatten, Dense, Dropout, BatchNormalization, Activation
+from keras.regularizers import l1, l2
 from sklearn.model_selection import KFold
+from collections.abc import Callable
 
 
 def fasta_to_onehot(pos_path: str, neg_path: str) -> pd.DataFrame:
@@ -67,7 +61,41 @@ def fasta_to_onehot(pos_path: str, neg_path: str) -> pd.DataFrame:
     return df
 
 
-def training_process(df, n_folds, cnns):
+def training_process(df: pd.DataFrame, n_folds: int, cnns: list[Callable]) -> dict:
+
+    """
+    Train and evaluate multiple CNN architectures using K-fold
+    cross-validation.
+
+    Parameters
+    ----------
+    df : DataFrame containing the encoded sequences and their labels.
+    n_folds : int. Number of folds used for K-fold cross-validation.
+
+    cnns : List of CNN constructor functions. 
+
+    Returns
+    -------
+    dict containing:
+
+        - 'evaluation_metrics' : pandas.DataFrame
+            Average performance metrics for each architecture,
+            including loss, accuracy, precision, recall, AUC, and F1-score.
+
+        - 'training_curves' : dict
+            Training histories for all folds and architectures.
+
+        - 'roc_curves' : dict
+            False positive rates and true positive rates for each fold.
+
+        - 'confusion_matrices' : dict
+            Aggregated confusion matrix for each architecture.
+
+    Notes
+    -----
+    Predictions from all validation folds are concatenated to generate
+    a single confusion matrix per architecture.
+    """
 
     X = np.array(df['encoding'].tolist())
     y = df['label'].values
@@ -78,7 +106,7 @@ def training_process(df, n_folds, cnns):
     evaluation_results = {cnn.__name__: [] for cnn in cnns}
     training_histories = {cnn.__name__: [] for cnn in cnns}
     roc_curves = {cnn.__name__: [] for cnn in cnns}
-    confusion_matrixs = {cnn.__name__: [] for cnn in cnns}
+    confusion_matrices = {cnn.__name__: [] for cnn in cnns}
 
     for cnn in cnns:
         print(f'\n--- Training {cnn.__name__} ---')
@@ -95,44 +123,38 @@ def training_process(df, n_folds, cnns):
 
             model = cnn(input_shape)
             model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy', 'precision', 'recall', 'auc'])
-            history = model.fit(X_train_fold, y_train_fold, epochs=2, batch_size=32, validation_data=(X_val_fold, y_val_fold), verbose=1)
+            history = model.fit(X_train_fold, y_train_fold, epochs=15, batch_size=32, validation_data=(X_val_fold, y_val_fold), verbose=1)
             
             training_histories[cnn.__name__].append(history.history)
 
-            loss, accuracy, precision, recall, auc = model.evaluate(X_val_fold, y_val_fold, verbose=0)
+            loss, accuracy, precision, recall, auc_score = model.evaluate(X_val_fold, y_val_fold, verbose=0)
 
             y_pred_prob = model.predict(X_val_fold)
-            y_pred = (y_pred_prob > 0.5).astype(int)
+            y_pred = (y_pred_prob > 0.5).astype(int).ravel()
 
             all_true.extend(y_val_fold)
             all_pred.extend(y_pred)
 
             f1 = f1_score(y_val_fold, y_pred, average='weighted')
 
-            fold_metrics.append([loss, accuracy, precision, recall, auc, f1])
+            fold_metrics.append([loss, accuracy, precision, recall, auc_score, f1])
+            metrics = np.array(fold_metrics)
 
             fpr, tpr, _ = roc_curve(y_val_fold, y_pred_prob) 
             roc_curves[cnn.__name__].append((fpr, tpr))
 
         cm = confusion_matrix(all_true, all_pred)
-        confusion_matrixs[cnn.__name__].append(cm)
+        confusion_matrices[cnn.__name__].append(cm)
       
         # Guardar el promedio del modelo
-        avg_loss = np.mean([m[0] for m in fold_metrics])
-        avg_acc  = np.mean([m[1] for m in fold_metrics])
-        avg_preci   = np.mean([m[2] for m in fold_metrics])
-        avg_recall = np.mean([m[3] for m in fold_metrics])
-        avg_auc  = np.mean([m[4] for m in fold_metrics])
-        avg_f1   = np.mean([m[5] for m in fold_metrics])
-
-        evaluation_results[cnn.__name__] = [avg_loss, avg_acc, avg_preci, avg_recall, avg_auc, avg_f1]
+        evaluation_results[cnn.__name__] = metrics.mean(axis=0).tolist()
 
     df_results = pd.DataFrame.from_dict(evaluation_results, orient='index', columns=['loss', 'accuracy', 'precision', 'recall', 'auc', 'f1']).reset_index().rename(columns={'index': 'cnn'})
 
     return {'evaluation_metrics': df_results, 
             'training_curves': training_histories,
              'roc_curves': roc_curves,
-             'confusion_matrices': confusion_matrixs
+             'confusion_matrices': confusion_matrices
                }
 
 def SpliceFinder(input_shape): #SpliceFinder - https://link.springer.com/article/10.1186/s12859-022-04971-w#Sec2 
@@ -212,7 +234,7 @@ def plot_all_results(results, model_names, save_path="results"):
     eval_metrics = results['evaluation_metrics']
 
     # ============================================================
-    # 1. CURVAS DE LOSS (PROMEDIO TRAIN + PROMEDIO VAL)
+    # 1. LOSS CURVES (PROMEDIO TRAIN + PROMEDIO VAL)
     # ============================================================
     plt.figure(figsize=(9,6))
 

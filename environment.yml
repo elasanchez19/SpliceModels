@@ -1,0 +1,19 @@
+name: splice
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.11
+
+  - numpy
+  - pandas
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - biopython
+
+  - pip
+  - pip:
+      - tensorflow>=2.10
+
