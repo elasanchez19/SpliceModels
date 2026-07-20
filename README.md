@@ -256,9 +256,9 @@ Biologist — Computational Biology
 
 Transitioning into computational biology with a focus on AI-driven genomics. This project is part of a portfolio series exploring deep learning applications to fundamental molecular biology problems.
 
-- 🎥 YouTube: *[Bioinformatics & AI Code]*
-- 💼 LinkedIn: *[daniela-sanchez-214281314]*
-- 🐙 GitHub: *[elasanchez19]*
+- 🎥 YouTube: *Bioinformatics & AI Code, soon*
+- 💼 LinkedIn: *daniela-sanchez-214281314*
+- 🐙 GitHub: *elasanchez19*
 
 ---
 
@@ -273,5 +273,5 @@ Transitioning into computational biology with a focus on AI-driven genomics. Thi
 ---
 
 <p align="center">
-  <i>Built with curiosity, biology, and too much coffee. ☕🧬</i>
+  <i>DS</i>
 </p>
