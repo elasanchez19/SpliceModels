@@ -256,15 +256,9 @@ Biologist — Computational Biology
 
 Transitioning into computational biology with a focus on AI-driven genomics. This project is part of a portfolio series exploring deep learning applications to fundamental molecular biology problems.
 
-- 🎥 YouTube: *[Channel name — Bioinformatics & AI Code]*
-- 💼 LinkedIn: *[your-profile]*
-- 🐙 GitHub: *[your-username]*
-
----
-
-## 📄 License
-
-This project is released under the **MIT License**. See `LICENSE` for details.
+- 🎥 YouTube: *[Bioinformatics & AI Code]*
+- 💼 LinkedIn: *[daniela-sanchez-214281314]*
+- 🐙 GitHub: *[elasanchez19]*
 
 ---
 
